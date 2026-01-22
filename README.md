@@ -64,7 +64,7 @@ python src/data_loader.py
 
 **Example**:
 
-```
+```text
 Arsenal's last 5 home games: W, W, D, W, L
 HomeFormPoints = 3 + 3 + 1 + 3 + 0 = 10 points
 ```
@@ -118,7 +118,7 @@ HomeFormPoints = 3 + 3 + 1 + 3 + 0 = 10 points
 
 **Output**:
 
-```
+```text
 Model Accuracy: 54.5%
 Baseline (Always Home): 46.1%
 Improvement: +8.4%
@@ -141,43 +141,64 @@ python src/train_model.py
 
 ### 4. Making Predictions (`src/predict.py`)
 
-**What it does**: Predicts the outcome of a specific matchup.
+**What it does**: Predicts the outcome of a specific matchup by calculating real-time form from the latest available data.
 
-**How it works**:
+**Line-by-Line Logic**:
 
-1. **Load the trained model**
+1.  **Data Loading & Encoding**:
+    - The script loads the trained model and the historical dataset.
+    - Since team identifiers must match training, it recreates the `team_map` (e.g., `{'Arsenal': 5, ...}`) from the full historical record.
+    ```python
+    rf = joblib.load("models/rf_model.pkl")
+    df = pd.read_csv("data/raw/all_seasons.csv")
+    all_teams = pd.concat([df['HomeTeam'], df['AwayTeam']]).unique()
+    team_map = {team: i for i, team in enumerate(all_teams)}
+    ```
 
-   ```python
-   rf = joblib.load("models/rf_model.pkl")
-   ```
+2.  **Dynamic Stat Retrieval (`get_latest_stats`)**:
+    - For the input teams, the script scans the CSV for the **last 5 occurrences** of each team (whether they played at Home or Away).
+    - It manually calculates points (3 for W, 1 for D, 0 for L) and goal averages for these 5 games to get the absolute latest "momentum" and "efficiency" metrics.
+    ```python
+    team_games = df[(df['HomeTeam'] == team) | (df['AwayTeam'] == team)].sort_values('Date').tail(5)
+    ```
 
-2. **Calculate current stats for both teams**
+3.  **The Inference Vector**:
+    - It organizes these stats into a single-row DataFrame that matches the model's training features:
+    ```python
+    X = pd.DataFrame([{
+        'HomeTeamCode': team_map[home_team],
+        'AwayTeamCode': team_map[away_team],
+        'HomeFormPoints': h_form,
+        'HomeAvgGoals': h_att,
+        'HomeAvgConceded': h_def,
+        # ... and so on
+    }])
+    ```
 
-   - Looks at their last 5 games in the dataset
-   - Computes form points, avg goals, etc.
+4.  **Probability Calculation**:
+    - Instead of a simple "Win/Loss", the model outputs a probability array:
+    ```python
+    probs = rf.predict_proba(X)[0] # e.g. [0.52, 0.23, 0.25]
+    ```
+    - The highest probability becomes the final "Predicted Result".
 
-3. **Create feature vector**
+**Usage**:
 
-   ```python
-   X = [HomeTeamCode, AwayTeamCode, HomeFormPoints, AwayFormPoints, ...]
-   ```
+```bash
+python src/predict.py "Arsenal" "Chelsea"
+```
 
-4. **Get probabilities**
+**Output Example**:
+```
+Stats for Arsenal: Form=12, GF=2.4, GA=0.8
+Stats for Chelsea: Form=7, GF=1.2, GA=1.6
 
-   ```python
-   probs = rf.predict_proba(X)
-   # Returns: [0.52, 0.23, 0.25] for [Home, Draw, Away]
-   ```
+Arsenal Win: 52.0%
+Draw:       23.0%
+Chelsea Win: 25.0%
 
-5. **Output prediction**
-
-   ```
-   Arsenal Win: 52.0%
-   Draw:       23.0%
-   Chelsea Win: 25.0%
-
-   Predicted Result: Arsenal
-   ```
+Predicted Result: Arsenal
+```
 
 **Usage**:
 
@@ -198,7 +219,7 @@ python src/predict.py "Man City" "Liverpool"
 
 We use **Expected Value (EV)** betting:
 
-```
+```text
 EV = (Model_Probability × Bookmaker_Odds) - 1
 ```
 
@@ -230,7 +251,7 @@ For each match in 2023/24 season:
 
 **Results**:
 
-```
+```text
 Season: 2023/24
 Total Bets: 201 / 380 matches (52.9%)
 Win Rate: 29.9%
@@ -334,7 +355,7 @@ python src/backtest.py
 
 ## 📁 Project Structure
 
-```
+```text
 sports-pred-alg/
 ├── data/
 │   └── raw/
@@ -370,7 +391,7 @@ A Random Forest is an **ensemble** of decision trees. Here's how it works:
 
 **Example**:
 
-```
+```text
 Tree 1: Home Win
 Tree 2: Home Win
 Tree 3: Draw
