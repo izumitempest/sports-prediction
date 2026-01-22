@@ -8,10 +8,3 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12
-
-  # Frontend Static Site
-  - type: static
-    name: gopredict-frontend
-    env: static
-    buildCommand: cd Gopredict && npm install && npm run build
-    staticPublishDir: Gopredict/dist
