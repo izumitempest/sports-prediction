@@ -1,0 +1,17 @@
+services:
+  # Backend API
+  - type: web
+    name: sports-prediction-api
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn src.app:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12
+
+  # Frontend Static Site
+  - type: static
+    name: gopredict-frontend
+    env: static
+    buildCommand: cd Gopredict && npm install && npm run build
+    staticPublishDir: Gopredict/dist
